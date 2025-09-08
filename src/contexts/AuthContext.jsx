@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { userService } from '../lib/database'
 
 const AuthContext = createContext()
 
@@ -15,45 +17,103 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate checking for existing session
-    const savedUser = localStorage.getItem('leadflow_user')
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    }
-    setLoading(false)
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadUserProfile(session.user)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadUserProfile(session.user)
+      } else {
+        setUser(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const login = async (email, password) => {
-    // Simulate login
-    const userData = {
-      id: '1',
-      email,
-      name: email.split('@')[0],
-      subscriptionPlan: 'pro',
-      createdAt: new Date().toISOString()
+  const loadUserProfile = async (authUser) => {
+    try {
+      const profile = await userService.getUserById(authUser.id)
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        subscriptionPlan: profile.subscription_plan,
+        createdAt: profile.created_at
+      })
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+      // If profile doesn't exist, create it
+      try {
+        const newProfile = await userService.createUser({
+          id: authUser.id,
+          email: authUser.email,
+          name: authUser.user_metadata?.name || authUser.email.split('@')[0],
+          subscriptionPlan: 'free'
+        })
+        setUser({
+          id: newProfile.id,
+          email: newProfile.email,
+          name: newProfile.name,
+          subscriptionPlan: newProfile.subscription_plan,
+          createdAt: newProfile.created_at
+        })
+      } catch (createError) {
+        console.error('Error creating user profile:', createError)
+      }
+    } finally {
+      setLoading(false)
     }
-    setUser(userData)
-    localStorage.setItem('leadflow_user', JSON.stringify(userData))
-    return userData
+  }
+
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (error) throw error
+    return data.user
   }
 
   const signup = async (email, password, name) => {
-    // Simulate signup
-    const userData = {
-      id: Date.now().toString(),
+    const { data, error } = await supabase.auth.signUp({
       email,
-      name,
-      subscriptionPlan: 'free',
-      createdAt: new Date().toISOString()
-    }
-    setUser(userData)
-    localStorage.setItem('leadflow_user', JSON.stringify(userData))
-    return userData
+      password,
+      options: {
+        data: {
+          name: name
+        }
+      }
+    })
+
+    if (error) throw error
+    return data.user
   }
 
-  const logout = () => {
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
     setUser(null)
-    localStorage.removeItem('leadflow_user')
+  }
+
+  const updateProfile = async (updates) => {
+    if (!user) throw new Error('No user logged in')
+    
+    const updatedProfile = await userService.updateUser(user.id, updates)
+    setUser({
+      ...user,
+      ...updates
+    })
+    return updatedProfile
   }
 
   const value = {
@@ -61,6 +121,7 @@ export function AuthProvider({ children }) {
     login,
     signup,
     logout,
+    updateProfile,
     loading
   }
 
