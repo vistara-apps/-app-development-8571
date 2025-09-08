@@ -1,22 +1,12 @@
 import React, { useState } from 'react'
-import { useApp } from '../context/AppContext'
-import { 
-  Plus, 
-  Play, 
-  Pause, 
-  Edit, 
-  Trash, 
-  Copy,
-  MoreHorizontal,
-  Mail,
-  Clock,
-  Users,
-  TrendingUp
-} from 'lucide-react'
+import { useSequences } from '../contexts/SequenceContext'
+import { Plus, Play, Pause, Edit, Trash2, Mail, Clock, Users } from 'lucide-react'
 import SequenceBuilder from '../components/SequenceBuilder'
+import { clsx } from 'clsx'
+import { formatDistanceToNow } from 'date-fns'
 
 export default function Sequences() {
-  const { sequences, dispatch } = useApp()
+  const { sequences, createSequence, updateSequence, deleteSequence, toggleSequence, getSequenceAnalytics } = useSequences()
   const [showBuilder, setShowBuilder] = useState(false)
   const [editingSequence, setEditingSequence] = useState(null)
 
@@ -32,44 +22,31 @@ export default function Sequences() {
 
   const handleSaveSequence = (sequenceData) => {
     if (editingSequence) {
-      dispatch({ type: 'UPDATE_SEQUENCE', payload: sequenceData })
+      updateSequence(editingSequence.id, sequenceData)
     } else {
-      dispatch({ type: 'ADD_SEQUENCE', payload: sequenceData })
+      createSequence(sequenceData)
     }
     setShowBuilder(false)
     setEditingSequence(null)
   }
 
-  const handleDeleteSequence = (sequenceId) => {
-    if (window.confirm('Are you sure you want to delete this sequence?')) {
-      dispatch({ type: 'DELETE_SEQUENCE', payload: sequenceId })
-    }
+  const handleCancelBuilder = () => {
+    setShowBuilder(false)
+    setEditingSequence(null)
   }
 
-  const handleToggleSequence = (sequenceId, isActive) => {
-    dispatch({ 
-      type: 'UPDATE_SEQUENCE', 
-      payload: { sequenceId, isActive: !isActive } 
-    })
+  const getStatusColor = (isActive) => {
+    return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
   }
 
-  const handleDuplicateSequence = (sequence) => {
-    const duplicatedSequence = {
-      ...sequence,
-      sequenceId: `seq_${Date.now()}`,
-      name: `${sequence.name} (Copy)`,
-      isActive: false,
-      stats: {
-        sent: 0,
-        opened: 0,
-        clicked: 0,
-        replied: 0,
-        openRate: 0,
-        clickRate: 0,
-        replyRate: 0
-      }
+  const getSegmentColor = (segment) => {
+    switch (segment) {
+      case 'Hot': return 'bg-red-100 text-red-800'
+      case 'Warm': return 'bg-yellow-100 text-yellow-800'
+      case 'Cold': return 'bg-blue-100 text-blue-800'
+      case 'Nurture': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
     }
-    dispatch({ type: 'ADD_SEQUENCE', payload: duplicatedSequence })
   }
 
   if (showBuilder) {
@@ -77,199 +54,179 @@ export default function Sequences() {
       <SequenceBuilder
         sequence={editingSequence}
         onSave={handleSaveSequence}
-        onCancel={() => {
-          setShowBuilder(false)
-          setEditingSequence(null)
-        }}
+        onCancel={handleCancelBuilder}
       />
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="heading-1 text-dark-text-primary">Sequences</h1>
-          <p className="text-dark-text-secondary mt-2">
-            Automate your outreach with email sequences
-          </p>
+          <h1 className="text-3xl font-bold text-text-primary">Sequences</h1>
+          <p className="text-text-secondary">Automate your outreach with smart email sequences</p>
         </div>
-        <button
-          onClick={handleCreateSequence}
-          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Sequence</span>
+        <button onClick={handleCreateSequence} className="btn-primary">
+          <Plus className="w-4 h-4 mr-2" />
+          Create Sequence
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-dark-text-secondary">Total Sequences</p>
-              <p className="text-2xl font-bold text-dark-text-primary mt-1">{sequences.length}</p>
+              <p className="text-text-secondary text-sm font-medium">Total Sequences</p>
+              <p className="text-2xl font-bold text-text-primary">{sequences.length}</p>
             </div>
-            <Mail className="w-8 h-8 text-primary" />
+            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
           </div>
         </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-6">
+
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-dark-text-secondary">Active Sequences</p>
-              <p className="text-2xl font-bold text-dark-text-primary mt-1">
-                {sequences.filter(seq => seq.isActive).length}
+              <p className="text-text-secondary text-sm font-medium">Active Sequences</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {sequences.filter(s => s.isActive).length}
               </p>
             </div>
-            <Play className="w-8 h-8 text-green-400" />
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <Play className="w-6 h-6 text-green-600" />
+            </div>
           </div>
         </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-6">
+
+        <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-dark-text-secondary">Total Sent</p>
-              <p className="text-2xl font-bold text-dark-text-primary mt-1">
-                {sequences.reduce((sum, seq) => sum + (seq.stats?.sent || 0), 0)}
+              <p className="text-text-secondary text-sm font-medium">Avg Response Rate</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {sequences.length ? 
+                  (Object.values(sequences.reduce((acc, seq) => {
+                    const analytics = getSequenceAnalytics(seq.id)
+                    acc.totalReplyRate = (acc.totalReplyRate || 0) + analytics.replyRate
+                    acc.count = (acc.count || 0) + 1
+                    return acc
+                  }, {})).length ? 
+                    (Object.values(sequences.reduce((acc, seq) => {
+                      const analytics = getSequenceAnalytics(seq.id)
+                      acc.totalReplyRate = (acc.totalReplyRate || 0) + analytics.replyRate
+                      acc.count = (acc.count || 0) + 1
+                      return acc
+                    }, {})).reduce((a, b) => a + b, 0) / sequences.length).toFixed(1) 
+                    : '0') 
+                  : '0'}%
               </p>
             </div>
-            <TrendingUp className="w-8 h-8 text-accent" />
-          </div>
-        </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-dark-text-secondary">Avg. Open Rate</p>
-              <p className="text-2xl font-bold text-dark-text-primary mt-1">
-                {Math.round(sequences.reduce((sum, seq) => sum + (seq.stats?.openRate || 0), 0) / sequences.length) || 0}%
-              </p>
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-orange-600" />
             </div>
-            <Mail className="w-8 h-8 text-blue-400" />
           </div>
         </div>
       </div>
 
       {/* Sequences List */}
-      {sequences.length === 0 ? (
-        <div className="text-center py-12 bg-dark-surface border border-gray-800 rounded-lg">
-          <Mail className="w-12 h-12 text-dark-text-secondary mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-dark-text-primary mb-2">No sequences yet</h3>
-          <p className="text-dark-text-secondary mb-4">
-            Create your first email sequence to start automating your outreach
-          </p>
-          <button
-            onClick={handleCreateSequence}
-            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            Create First Sequence
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {sequences.map((sequence) => (
-            <div key={sequence.sequenceId} className="bg-dark-surface border border-gray-800 rounded-lg p-6">
+      <div className="space-y-4">
+        {sequences.map(sequence => {
+          const analytics = getSequenceAnalytics(sequence.id)
+          return (
+            <div key={sequence.id} className="card">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold text-dark-text-primary">{sequence.name}</h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      sequence.isActive 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                    }`}>
-                      {sequence.isActive ? 'Active' : 'Inactive'}
+                    <h3 className="text-lg font-semibold text-text-primary">{sequence.name}</h3>
+                    <span className={clsx('px-2 py-1 rounded-full text-xs font-medium', getStatusColor(sequence.isActive))}>
+                      {sequence.isActive ? 'Active' : 'Paused'}
+                    </span>
+                    <span className={clsx('px-2 py-1 rounded-full text-xs font-medium', getSegmentColor(sequence.targetSegment))}>
+                      {sequence.targetSegment} Leads
                     </span>
                   </div>
                   
-                  <p className="text-dark-text-secondary mb-4">{sequence.description}</p>
-                  
-                  <div className="flex items-center space-x-6 text-sm text-dark-text-secondary mb-4">
+                  <div className="flex items-center space-x-6 text-sm text-text-secondary mb-3">
                     <div className="flex items-center space-x-1">
                       <Mail className="w-4 h-4" />
                       <span>{sequence.steps.length} steps</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Users className="w-4 h-4" />
-                      <span>
-                        Targets: {sequence.triggerConditions.segments.length > 0 
-                          ? sequence.triggerConditions.segments.join(', ') 
-                          : 'All segments'
-                        }
-                      </span>
+                      <Clock className="w-4 h-4" />
+                      <span>Created {formatDistanceToNow(new Date(sequence.createdAt), { addSuffix: true })}</span>
                     </div>
-                    {sequence.triggerConditions.minScore > 0 && (
-                      <div className="flex items-center space-x-1">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>Min score: {sequence.triggerConditions.minScore}</span>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Performance Stats */}
-                  {sequence.stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-dark-bg rounded-lg">
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-dark-text-primary">{sequence.stats.sent}</div>
-                        <div className="text-xs text-dark-text-secondary">Sent</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-accent">{sequence.stats.openRate}%</div>
-                        <div className="text-xs text-dark-text-secondary">Open Rate</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-primary">{sequence.stats.clickRate}%</div>
-                        <div className="text-xs text-dark-text-secondary">Click Rate</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-green-400">{sequence.stats.replyRate}%</div>
-                        <div className="text-xs text-dark-text-secondary">Reply Rate</div>
-                      </div>
+                  {/* Performance Metrics */}
+                  <div className="grid grid-cols-4 gap-4 mt-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-bold text-text-primary">{analytics.sent || 0}</div>
+                      <div className="text-xs text-text-secondary">Sent</div>
                     </div>
-                  )}
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-bold text-text-primary">{analytics.openRate?.toFixed(1) || 0}%</div>
+                      <div className="text-xs text-text-secondary">Open Rate</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-bold text-text-primary">{analytics.clickRate?.toFixed(1) || 0}%</div>
+                      <div className="text-xs text-text-secondary">Click Rate</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-lg font-bold text-text-primary">{analytics.replyRate?.toFixed(1) || 0}%</div>
+                      <div className="text-xs text-text-secondary">Reply Rate</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center space-x-2 ml-4">
                   <button
-                    onClick={() => handleToggleSequence(sequence.sequenceId, sequence.isActive)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      sequence.isActive 
-                        ? 'text-green-400 hover:bg-green-400/10' 
-                        : 'text-dark-text-secondary hover:bg-dark-bg'
-                    }`}
+                    onClick={() => toggleSequence(sequence.id)}
+                    className={clsx(
+                      'p-2 rounded-md transition-colors',
+                      sequence.isActive
+                        ? 'text-orange-600 hover:bg-orange-50'
+                        : 'text-green-600 hover:bg-green-50'
+                    )}
                     title={sequence.isActive ? 'Pause sequence' : 'Start sequence'}
                   >
                     {sequence.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </button>
-                  
                   <button
                     onClick={() => handleEditSequence(sequence)}
-                    className="p-2 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg rounded-lg transition-colors"
+                    className="p-2 text-primary hover:bg-primary/10 rounded-md transition-colors"
                     title="Edit sequence"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
-                  
                   <button
-                    onClick={() => handleDuplicateSequence(sequence)}
-                    className="p-2 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg rounded-lg transition-colors"
-                    title="Duplicate sequence"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDeleteSequence(sequence.sequenceId)}
-                    className="p-2 text-dark-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+                    onClick={() => deleteSequence(sequence.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
                     title="Delete sequence"
                   >
-                    <Trash className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
-          ))}
+          )
+        })}
+      </div>
+
+      {sequences.length === 0 && (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-8 h-8 text-text-secondary" />
+          </div>
+          <h3 className="text-lg font-medium text-text-primary mb-2">No sequences yet</h3>
+          <p className="text-text-secondary mb-4">
+            Create your first email sequence to start automating your outreach.
+          </p>
+          <button onClick={handleCreateSequence} className="btn-primary">
+            <Plus className="w-4 h-4 mr-2" />
+            Create Your First Sequence
+          </button>
         </div>
       )}
     </div>

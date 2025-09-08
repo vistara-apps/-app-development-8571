@@ -1,276 +1,213 @@
-import React, { useState, useMemo } from 'react'
-import { useApp } from '../context/AppContext'
-import { 
-  Plus, 
-  Download, 
-  Upload, 
-  Search,
-  Filter,
-  MoreHorizontal,
-  Edit,
-  Trash,
-  Mail,
-  Phone,
-  User
-} from 'lucide-react'
+import React, { useState } from 'react'
+import { useLeads } from '../contexts/LeadContext'
+import { Plus, Filter, Search, Download, Upload } from 'lucide-react'
 import LeadCard from '../components/LeadCard'
-import SegmentFilter from '../components/SegmentFilter'
+import { clsx } from 'clsx'
 
 export default function Leads() {
-  const { leads, selectedLeadSegment, dispatch } = useApp()
+  const { leads, addLead, addActivity } = useLeads()
   const [searchTerm, setSearchTerm] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [selectedLead, setSelectedLead] = useState(null)
-  const [viewMode, setViewMode] = useState('grid') // grid or list
+  const [selectedSegment, setSelectedSegment] = useState('All')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newLead, setNewLead] = useState({
+    name: '',
+    email: '',
+    company: ''
+  })
 
-  // Filter and search leads
-  const filteredLeads = useMemo(() => {
-    let filtered = leads
+  const segments = ['All', 'Hot', 'Warm', 'Cold', 'Nurture']
 
-    // Filter by segment
-    if (selectedLeadSegment !== 'all') {
-      filtered = filtered.filter(lead => lead.segment === selectedLeadSegment)
-    }
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.company.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSegment = selectedSegment === 'All' || lead.segment === selectedSegment
+    return matchesSearch && matchesSegment
+  })
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(lead => 
-        lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.company.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    return filtered
-  }, [leads, selectedLeadSegment, searchTerm])
-
-  const handleAddLead = (leadData) => {
-    const newLead = {
-      leadId: `lead_${Date.now()}`,
-      ...leadData,
-      score: 0,
-      segment: 'Cold',
-      lastActivity: new Date().toISOString(),
-      status: 'New'
-    }
-    dispatch({ type: 'ADD_LEAD', payload: newLead })
-    setShowAddForm(false)
+  const handleAddLead = (e) => {
+    e.preventDefault()
+    addLead(newLead)
+    setNewLead({ name: '', email: '', company: '' })
+    setShowAddModal(false)
   }
 
-  const handleUpdateLead = (leadId, updates) => {
-    dispatch({ type: 'UPDATE_LEAD', payload: { leadId, ...updates } })
-    setSelectedLead(null)
+  const handleLeadClick = (lead) => {
+    // Simulate adding an activity when clicking on a lead
+    addActivity(lead.id, {
+      type: 'profile_view',
+      details: 'Lead profile viewed'
+    })
   }
-
-  const handleDeleteLead = (leadId) => {
-    dispatch({ type: 'DELETE_LEAD', payload: leadId })
-  }
-
-  const AddLeadForm = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-dark-surface border border-gray-800 rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-dark-text-primary mb-4">Add New Lead</h3>
-        <form onSubmit={(e) => {
-          e.preventDefault()
-          const formData = new FormData(e.target)
-          handleAddLead({
-            name: formData.get('name'),
-            email: formData.get('email'),
-            company: formData.get('company'),
-            title: formData.get('title'),
-            phone: formData.get('phone'),
-            location: formData.get('location'),
-            source: formData.get('source')
-          })
-        }}>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Name *</label>
-              <input
-                type="text"
-                name="name"
-                required
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Email *</label>
-              <input
-                type="email"
-                name="email"
-                required
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Company</label>
-              <input
-                type="text"
-                name="company"
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Title</label>
-              <input
-                type="text"
-                name="title"
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Phone</label>
-              <input
-                type="tel"
-                name="phone"
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Location</label>
-              <input
-                type="text"
-                name="location"
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-dark-text-primary mb-2">Source</label>
-              <select
-                name="source"
-                className="w-full px-3 py-2 bg-dark-bg border border-gray-700 rounded-lg text-dark-text-primary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-              >
-                <option value="Website">Website</option>
-                <option value="LinkedIn">LinkedIn</option>
-                <option value="Referral">Referral</option>
-                <option value="Cold Email">Cold Email</option>
-                <option value="Social Media">Social Media</option>
-                <option value="Event">Event</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end space-x-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="px-4 py-2 text-dark-text-secondary hover:text-dark-text-primary transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-            >
-              Add Lead
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="heading-1 text-dark-text-primary">Leads</h1>
-          <p className="text-dark-text-secondary mt-2">
-            Manage and score your prospects
-          </p>
+          <h1 className="text-3xl font-bold text-text-primary">Leads</h1>
+          <p className="text-text-secondary">Manage and track your lead pipeline</p>
         </div>
-        <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 bg-dark-surface border border-gray-700 rounded-lg text-dark-text-primary hover:border-gray-600 transition-colors flex items-center space-x-2">
-            <Upload className="w-4 h-4" />
-            <span>Import</span>
+        <div className="flex gap-2">
+          <button className="btn-secondary">
+            <Upload className="w-4 h-4 mr-2" />
+            Import
           </button>
-          <button className="px-4 py-2 bg-dark-surface border border-gray-700 rounded-lg text-dark-text-primary hover:border-gray-600 transition-colors flex items-center space-x-2">
-            <Download className="w-4 h-4" />
-            <span>Export</span>
+          <button className="btn-secondary">
+            <Download className="w-4 h-4 mr-2" />
+            Export
           </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors flex items-center space-x-2"
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Lead</span>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Lead
           </button>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-dark-text-secondary" />
-          <input
-            type="text"
-            placeholder="Search leads..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-dark-surface border border-gray-700 rounded-lg text-dark-text-primary placeholder-dark-text-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-          />
+      <div className="card">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <input
+                type="text"
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input pl-10"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            {segments.map(segment => (
+              <button
+                key={segment}
+                onClick={() => setSelectedSegment(segment)}
+                className={clsx(
+                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                  selectedSegment === segment
+                    ? 'bg-accent text-white'
+                    : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                )}
+              >
+                {segment}
+                {segment !== 'All' && (
+                  <span className="ml-1 text-xs">
+                    ({leads.filter(l => l.segment === segment).length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-        <SegmentFilter
-          selected={selectedLeadSegment}
-          onSelect={(segment) => dispatch({ type: 'SET_LEAD_SEGMENT', payload: segment })}
-          variant="tags"
-        />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-dark-text-primary">{filteredLeads.length}</div>
-          <div className="text-sm text-dark-text-secondary">Total Leads</div>
-        </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-400">{filteredLeads.filter(l => l.segment === 'Hot').length}</div>
-          <div className="text-sm text-dark-text-secondary">Hot Leads</div>
-        </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-orange-400">{filteredLeads.filter(l => l.segment === 'Warm').length}</div>
-          <div className="text-sm text-dark-text-secondary">Warm Leads</div>
-        </div>
-        <div className="bg-dark-surface border border-gray-800 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-accent">{Math.round(filteredLeads.reduce((sum, lead) => sum + lead.score, 0) / filteredLeads.length) || 0}</div>
-          <div className="text-sm text-dark-text-secondary">Avg Score</div>
-        </div>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {segments.slice(1).map(segment => {
+          const count = leads.filter(l => l.segment === segment).length
+          const percentage = leads.length ? (count / leads.length * 100).toFixed(1) : 0
+          return (
+            <div key={segment} className="card p-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-text-primary">{count}</div>
+                <div className="text-sm text-text-secondary">{segment} Leads</div>
+                <div className="text-xs text-text-secondary mt-1">{percentage}% of total</div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Leads Grid */}
-      {filteredLeads.length === 0 ? (
-        <div className="text-center py-12 bg-dark-surface border border-gray-800 rounded-lg">
-          <User className="w-12 h-12 text-dark-text-secondary mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-dark-text-primary mb-2">No leads found</h3>
-          <p className="text-dark-text-secondary mb-4">
-            {searchTerm || selectedLeadSegment !== 'all' 
-              ? 'Try adjusting your filters or search terms'
-              : 'Add your first lead to get started'
-            }
-          </p>
-          {!searchTerm && selectedLeadSegment === 'all' && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-            >
-              Add First Lead
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredLeads.map((lead) => (
-            <LeadCard 
-              key={lead.leadId} 
-              lead={lead} 
-              onClick={(lead) => setSelectedLead(lead)}
-            />
-          ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredLeads.map(lead => (
+          <LeadCard 
+            key={lead.id} 
+            lead={lead} 
+            onClick={() => handleLeadClick(lead)}
+          />
+        ))}
+      </div>
+
+      {filteredLeads.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-text-secondary">
+            {searchTerm || selectedSegment !== 'All' 
+              ? 'No leads match your current filters.'
+              : 'No leads yet. Add your first lead to get started!'}
+          </div>
         </div>
       )}
 
       {/* Add Lead Modal */}
-      {showAddForm && <AddLeadForm />}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="card max-w-md w-full">
+            <h2 className="text-xl font-bold text-text-primary mb-4">Add New Lead</h2>
+            <form onSubmit={handleAddLead} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={newLead.name}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newLead.email}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, email: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Company
+                </label>
+                <input
+                  type="text"
+                  value={newLead.company}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, company: e.target.value }))}
+                  className="input"
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary flex-1"
+                >
+                  Add Lead
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

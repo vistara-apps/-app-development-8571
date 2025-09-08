@@ -2,42 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @layer base {
   * {
-    @apply border-gray-200;
+    border-color: hsl(220, 15%, 90%);
   }
   
   body {
-    @apply bg-bg text-text-primary font-normal leading-7;
-  }
-  
-  .dark body {
-    @apply bg-dark-bg text-dark-text-primary;
+    background-color: hsl(220, 20%, 98%);
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
 @layer components {
-  .heading-display {
-    @apply text-4xl font-semibold;
+  .btn-primary {
+    @apply bg-accent text-white px-6 py-2 rounded-md font-medium hover:bg-accent/90 transition-colors duration-150;
   }
   
-  .heading-1 {
-    @apply text-3xl font-bold;
+  .btn-secondary {
+    @apply bg-surface text-text-primary px-6 py-2 rounded-md font-medium border hover:bg-gray-50 transition-colors duration-150;
   }
   
-  .heading-2 {
-    @apply text-2xl font-bold;
+  .card {
+    @apply bg-surface rounded-lg shadow-card p-6 border;
   }
   
-  .heading-3 {
-    @apply text-xl font-semibold;
-  }
-  
-  .body {
-    @apply text-base font-normal leading-7;
-  }
-  
-  .caption {
-    @apply text-sm font-normal leading-5;
+  .input {
+    @apply w-full px-3 py-2 border rounded-md bg-surface text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent;
   }
 }
